@@ -14,3 +14,4 @@ To run this program, you need to have Python and Tkinter installed on your syste
 4. Add widgets to the window.
    1. Label - show the current equation
    2. Entry - Enter new operand or see the current result
+   3. All buttons
