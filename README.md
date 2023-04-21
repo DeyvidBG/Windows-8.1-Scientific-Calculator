@@ -12,3 +12,5 @@ To run this program, you need to have Python and Tkinter installed on your syste
 2. Declare some variables - memory for the memory, equation where we store the equation at the moment and current where we store the current result.
 3. Create the main window. We want it not to be resizable and we give it a title Scientific Calculator.
 4. Add widgets to the window.
+   1. Label - show the current equation
+   2. Entry - Enter new operand or see the current result
