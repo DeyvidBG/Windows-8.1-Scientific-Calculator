@@ -15,3 +15,11 @@ To run this program, you need to have Python and Tkinter installed on your syste
    1. Label - show the current equation
    2. Entry - Enter new operand or see the current result
    3. All buttons
+
+## Adding some names
+
+1. memory - stores the memory data / integer
+2. temp_result - stores the temporary result / integer
+3. equation - stores the current equation / string
+4. counter - stores the step of the operation / integer
+5. history - stores all operations / dictionary key("equation") - value("result")

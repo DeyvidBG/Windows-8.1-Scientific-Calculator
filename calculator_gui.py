@@ -2,8 +2,28 @@ from tkinter import *
 from math import sin, cos, tan, sinh, cosh, tanh, log, log10, pi, radians, degrees, factorial
 
 memory = 0
-equation = ""
-current = 0
+temp_result = 0
+equation = "0"
+counter = 0
+history = {}
+
+# work with memory
+def addToHistory(counter, history, equation, result):
+    history[counter] = {"equation": equation, "result": result}
+    return counter + 1, history
+
+def clearHistory(counter, history):
+    history.clear()
+    counter = 0
+    return counter, history
+
+def clearLastEntry(counter, history):
+    if len(list(history.values())) <= 1:
+        raise ValueError("History is empty.")
+    else: 
+        history.pop(counter-1)
+        counter -= 1
+        return counter, history, history[counter-1]["equation"], history[counter-1]["result"]
 
 # Create window
 window = Tk()
