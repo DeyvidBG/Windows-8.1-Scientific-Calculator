@@ -127,6 +127,30 @@ def square(a, precision):
 def cube(a, precision):
     return round(Decimal(a ** 3), precision)
 
+@check_overflow
+def cube_root(a, precision):
+    return round(Decimal(a ** (1/3), precision))
+
+@check_overflow
+def nth_root(a, b, precision):
+    if a == 0 and b <= 0:
+        raise ValueError("Undefined: The root of 0 is not defined for non-positive values of y.")
+    if b == 0:
+        raise ZeroDivisionError("Undefined: Division by zero is not allowed.")
+    return round(Decimal(a ** (1 / b), precision))
+
+@check_overflow
+def modulo(a, b, precision):
+    if b == 0:
+        raise ZeroDivisionError("Undefined: Division by zero is not allowed.")
+    return round(Decimal(a % b), precision)
+
+@check_overflow
+def exponentiation(a, b, precision):
+    if a == 0 and b <= 0:
+        raise ValueError("Undefined: 0 raised to a negative power or 0 is not defined.")
+    return round(Decimal(a ** b), precision)
+
 memory = 0
 disabled = DISABLED
 temp_result = 0
@@ -216,7 +240,7 @@ binary_operators = ["+", "-", "*", "/", "Mod", "x^y", "y√"]
 
 def update_data(temp_result, equation):
     global counter, history
-    entry_text.set(str(temp_result))
+    entry_text.set("")
     label_text.set(equation) 
     counter, history = add_to_history(counter, history, equation, temp_result)
 
@@ -224,14 +248,66 @@ def add_operator(operator):
     global temp_result, equation, counter, history, new_equation, number, current_operator, label_text, entry_text
     #check if is a new equation
     if new_equation == True:
-        temp_result += int(entry_text.get())
+        temp_result += Decimal(entry_text.get())
         equation = entry_text.get()
         entry_text.set("")
         label_text.set(equation)
         new_equation = False
         counter, history = add_to_history(counter, history, equation, temp_result)
 
-    if operator in unary_operators:
+    if operator == "=":
+        equation = equation + "=" + str(temp_result)
+        label_text.set(equation)
+        entry_text.set(str(temp_result))
+        temp_result = 0
+        equation = ""
+        counter = 0
+        history = {}
+        new_equation = True
+
+    if current_operator != None:
+        if current_operator == "+":
+            temp_result = add(temp_result, Decimal(entry_text.get()), 2)
+            equation += entry_text.get()
+            update_data(temp_result, equation)
+        elif current_operator == "-":
+            temp_result = subtract(temp_result, Decimal(entry_text.get()), 2)
+            equation += entry_text.get()
+            update_data(temp_result, equation)
+        elif current_operator == "*":
+            temp_result = multiply(temp_result, Decimal(entry_text.get()), 2)
+            equation += entry_text.get()
+            update_data(temp_result, equation)
+        elif current_operator == "/":
+            try:
+                temp_result = divide(temp_result, Decimal(entry_text.get()), 2)
+                equation += entry_text.get()
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif current_operator == "Mod":
+            try:
+                temp_result = modulo(temp_result, Decimal(entry_text.get()), 2)
+                equation = "(" + equation + ")%" + str(Decimal(entry_text.get()))
+            except ZeroDivisionError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif current_operator == "x^y":
+            try:
+                temp_result = modulo(temp_result, Decimal(entry_text.get()), 2)
+                equation = "(" + equation + ")^" + str(Decimal(entry_text.get()))
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif current_operator == "y√":
+            try:
+                temp_result = modulo(temp_result, Decimal(entry_text.get()), 2)
+                equation = str(Decimal(entry_text.get())) + "√(" + equation + ")"
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+            except ZeroDivisionError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+    current_operator = None
+
+    if operator in unary_operators and current_operator == None:
         if operator == "√":
             try:
                 temp_result = sqrt(temp_result, 2)
@@ -300,6 +376,28 @@ def add_operator(operator):
             temp_result = cube(temp_result, 2)
             equation = "(" + label_text.get() + ")^3"
             update_data(temp_result, equation)
+        elif operator == "1/x":
+            try:
+                temp_result = reciproc(temp_result, 2)
+                equation = "reciproc(" + label_text.get() + ")"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "³√":
+            temp_result = cube_root(temp_result, 2)
+            equation = "³√(" + label_text.get() + ")"
+            update_data(temp_result, equation)
+        elif operator == "±":
+            temp_result = change_sign(temp_result)
+            equation = "±(" + label_text.get() + ")"
+            update_data(temp_result, equation)
+        else: messagebox.showerror('Calculator Error', 'You have already chose an operator that requires second argument, please add the second argument and after the execution you will be able to reverse the last operation.')
+
+    if operator in binary_operators and current_operator == None:
+        current_operator = operator
+        equation += current_operator
+        label_text.set(equation)
+
 
 def memory_operator(operator):
     global memory, temp_result
@@ -317,6 +415,10 @@ def memory_operator(operator):
         enable_button("MR")
         enable_button("M+")
         enable_button("M-")
+    elif operator == "M+":
+        memory += temp_result
+    elif operator == "M-":
+        memory -= temp_result
 
 
 def clear_entry(type):
@@ -325,7 +427,7 @@ def clear_entry(type):
         try:
             counter, history, equation, temp_result = clear_last_entry(counter, history)
             label_text.set(equation)
-            entry_text.set(str(temp_result))
+            entry_text.set("")
         except ValueError as e:
             messagebox.showinfo("Info", str(e))
     elif type == "fully":
@@ -355,16 +457,16 @@ buttons_left = [
     ("", DISABLED, 5, 0, 1, 1, None),
     ("cosh", NORMAL, 5, 1, 1, 1, lambda: add_operator("cosh")),
     ("cos", NORMAL, 5, 2, 1, 1, lambda: add_operator("cos")),
-    ("x^y", NORMAL, 5, 3, 1, 1, None),
-    ("y√", NORMAL, 5, 4, 1, 1, None),
+    ("x^y", NORMAL, 5, 3, 1, 1, lambda: add_operator("x^y")),
+    ("y√", NORMAL, 5, 4, 1, 1, lambda: add_operator("y√")),
     ("Pi", NORMAL, 6, 0, 1, 1, None),
     ("tanh", NORMAL, 6, 1, 1, 1, lambda: add_operator("tanh")),
     ("tan", NORMAL, 6, 2, 1, 1, lambda: add_operator("tan")),
     ("x^3", NORMAL, 6, 3, 1, 1, lambda: add_operator("x^3")),
-    ("³√", NORMAL, 6, 4, 1, 1, None),
+    ("³√", NORMAL, 6, 4, 1, 1, lambda: add_operator("³√")),
     ("", DISABLED, 7, 0, 1, 1, None),
     ("Exp", NORMAL, 7, 1, 1, 1, lambda: add_operator("exp")),
-    ("Mod", NORMAL, 7, 2, 1, 1, None),
+    ("Mod", NORMAL, 7, 2, 1, 1, lambda: add_operator("Mod")),
     ("log", NORMAL, 7, 3, 1, 1, lambda: add_operator("log")),
     ("10^x", NORMAL, 7, 4, 1, 1, None),
 ]
@@ -379,7 +481,7 @@ buttons_right = [
     ("", DISABLED, 3, 5, 1, 1, None),
     ("CE", NORMAL, 3, 6, 1, 1, lambda: clear_entry("partially")),
     ("C", NORMAL, 3, 7, 1, 1, lambda: clear_entry("fully")),
-    ("±", NORMAL, 3, 8, 1, 1, None),
+    ("±", NORMAL, 3, 8, 1, 1, lambda: add_operator("±")),
     ("√", NORMAL, 3, 9, 1, 1, lambda: add_operator("√")),
     ("7", NORMAL, 4, 5, 1, 1, lambda: add_digit(7)),
     ("8", NORMAL, 4, 6, 1, 1, lambda: add_digit(8)),
@@ -390,12 +492,12 @@ buttons_right = [
     ("5", NORMAL, 5, 6, 1, 1, lambda: add_digit(5)),
     ("6", NORMAL, 5, 7, 1, 1, lambda: add_digit(6)),
     ("*", NORMAL, 5, 8, 1, 1, lambda: add_operator("*")),
-    ("1/x", NORMAL, 5, 9, 1, 1, None),
+    ("1/x", NORMAL, 5, 9, 1, 1, lambda: add_operator("1/x")),
     ("1", NORMAL, 6, 5, 1, 1, lambda: add_digit(1)),
     ("2", NORMAL, 6, 6, 1, 1, lambda: add_digit(2)),
     ("3", NORMAL, 6, 7, 1, 1, lambda: add_digit(3)),
     ("-", NORMAL, 6, 8, 1, 1, lambda: add_operator("-")),
-    ("=", NORMAL, 6, 9, 2, 1, None),
+    ("=", NORMAL, 6, 9, 2, 1, lambda: add_operator("=")),
     ("0", NORMAL, 7, 5, 1, 2, lambda: add_digit(0)),
     (".", NORMAL, 7, 7, 1, 1, None),
     ("+", NORMAL, 7, 8, 1, 1, lambda: add_operator("+")),
