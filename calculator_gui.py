@@ -1,5 +1,6 @@
 from tkinter import *
-from math import sin, cos, tan, sinh, cosh, tanh, log, log10, pi, radians, degrees, factorial
+from tkinter import messagebox
+import math
 import sys
 from decimal import Decimal, DecimalException
 
@@ -61,25 +62,94 @@ def reciproc(a, precision):
 def change_sign(a, precision):
     return round(Decimal(-a), precision)
 
+@check_overflow
+def sin(a, precision):
+    global angle_mode
+    if angle_mode == "deg":
+        a = math.radians(a)
+    return round(Decimal(math.sin(a)), precision)
+
+@check_overflow
+def cos(a, precision):
+    global angle_mode
+    if angle_mode == "deg":
+        a = math.radians(a)
+    return round(Decimal(math.sin(a)), precision)
+
+@check_overflow
+def tan(a, precision):
+    global angle_mode
+    if angle_mode == "deg":
+        a = math.radians(a)
+    if math.cos(a) == 0:
+        raise ValueError("Undefined: tan is not defined for angles where cos(angle) = 0.")
+    else: return round(Decimal(math.tan(a)), precision)
+
+@check_overflow
+def sinh(a, precision):
+    return round(Decimal(math.sinh(a)), precision)
+
+@check_overflow
+def cosh(a, precision):
+    return round(Decimal(math.cosh(a)), precision)
+
+@check_overflow
+def tanh(a, precision):
+    return round(Decimal(math.tanh(a)), precision)
+
+@check_overflow
+def ln(a, precision):
+    if a <= 0:
+        raise ValueError("Undefined: ln(x) is not defined for x <= 0.")
+    return round(Decimal(math.log(a)), precision)
+
+@check_overflow
+def log(a, precision):
+    if a <= 0:
+        raise ValueError("Undefined: log10(x) is not defined for x <= 0.")
+    return round(Decimal(math.log10(a)), precision)
+
+@check_overflow
+def exp(a, precision):
+    return round(Decimal(math.exp(a)), precision)
+
+@check_overflow
+def factorial(a, precision):
+    if a < 0 or int(a) != a:
+        raise ValueError("Undefined: Factorial is only defined for non-negative integers.")
+    return round(Decimal(math.factorial(a)), precision)
+
+@check_overflow
+def square(a, precision):
+    return round(Decimal(a ** 2), precision)
+
+@check_overflow
+def cube(a, precision):
+    return round(Decimal(a ** 3), precision)
+
 memory = 0
+disabled = DISABLED
 temp_result = 0
 equation = ""
 counter = 0
 history = {}
 new_equation = True
-digit = True
+number = True
+current_operator = None
+angle_mode = "deg"
 
 # work with memory
-def addToHistory(counter, history, equation, result):
+def add_to_history(counter, history, equation, result):
     history[counter] = {"equation": equation, "result": result}
-    return counter + 1, history
+    counter += 1
+    return counter, history
 
-def clearHistory(counter, history):
+def clear_history(counter, history):
     history.clear()
     counter = 0
     return counter, history
 
-def clearLastEntry(counter, history):
+def clear_last_entry(counter, history):
     if len(list(history.values())) <= 1:
         raise ValueError("History is empty.")
     else: 
@@ -114,117 +184,230 @@ entry.grid(row = 1, column = 0, columnspan = 10, sticky = 'ew')
 angle_mode = StringVar(value = "deg")
 angle_frame = Frame(window, bd = 1, relief=SUNKEN)
 angle_frame.grid(row = 2, column = 0, columnspan = 5, sticky = 'ew')
-Radiobutton(angle_frame, text = "Deg", variable = angle_mode, value = "deg").grid(row = 0, column = 0)
-Radiobutton(angle_frame, text = "Rad", variable = angle_mode, value = "rad").grid(row = 0, column = 1)
+Radiobutton(angle_frame, text = "Deg", variable = angle_mode, value = "deg", command=lambda: change_angle_mode("deg")).grid(row = 0, column = 0)
+Radiobutton(angle_frame, text = "Rad", variable = angle_mode, value = "rad", command=lambda: change_angle_mode("rad")).grid(row = 0, column = 1)
 
-# Function that creates button
-def create_button(text, row, column, rowspan=1, columnspan=1, on_click=None, width=None):
-    btn = Button(window, text=text, width=width)
-    if text is None:
-        btn.config(state=DISABLED)
-    btn.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, sticky='ew')
-    if on_click:
-        btn.config(command=on_click)
-    return btn
+buttons = {}
+
+def disable_button(text):
+    button = buttons.get(text)
+    if button:
+        button.config(state=DISABLED)
+
+def enable_button(text):
+    button = buttons.get(text)
+    if button:
+        button.config(state=NORMAL)
 
 # define functionalities
 
-# add number
-def add_number(number):
-    global digit
-    if digit == True:
-        entry_text.set(entry_text.get() + str(number))
+def add_digit(digit):
+    global number, entry_text
+    # first check if the last entry was a digit
+    if number == True:
+        entry_text.set(entry_text.get() + str(digit))
     else:
-        entry_text.set(str(number))
-        digit = True
+        entry_text.set(str(digit))
+        number = True
 
-# add operator
+#define types of the operators more info in README.md
+unary_operators = ["√", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "ln", "log", "exp", "n!", "1/x", "x^2", "x^3", "10^x"]
+binary_operators = ["+", "-", "*", "/", "Mod", "x^y", "y√"]
+
+def update_data(temp_result, equation):
+    global counter, history
+    entry_text.set(str(temp_result))
+    label_text.set(equation) 
+    counter, history = add_to_history(counter, history, equation, temp_result)
+
 def add_operator(operator):
-    global temp_result, equation, counter, digit
-    if digit == True:
-        digit = False
-        counter+=1
-        if operator in ["+","-","*","/"]:
-            equation += entry_text.get()
-            if counter == 1:
-                temp_result += int(entry_text.get())
-                equation += operator
-                entry_text.set("")
-                label_text.set(equation)
-            elif operator == "=":
-                entry_text.set(str(temp_result))
-                label_text.set(equation + "=" + str(temp_result))
+    global temp_result, equation, counter, history, new_equation, number, current_operator, label_text, entry_text
+    #check if is a new equation
+    if new_equation == True:
+        temp_result += int(entry_text.get())
+        equation = entry_text.get()
+        entry_text.set("")
+        label_text.set(equation)
+        new_equation = False
+        counter, history = add_to_history(counter, history, equation, temp_result)
+
+    if operator in unary_operators:
+        if operator == "√":
+            try:
+                temp_result = sqrt(temp_result, 2)
+                equation = "√(" + label_text.get() + ")"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+            except OverflowError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "sin":
+            temp_result = sin(temp_result, 2)
+            equation = "sin(" + label_text.get() + ")"
+            update_data(temp_result, equation)
+        elif operator == "sinh":
+            temp_result = sinh(temp_result, 2)
+            equation = "sinh(" + label_text.get() + ")"
+            update_data(temp_result, equation)
+        elif operator == "cos":
+            temp_result = cos(temp_result, 2)
+            equation = "cos(" + label_text.get() + ")"
+            update_data(temp_result, equation)
+        elif operator == "cosh":
+            temp_result = cosh(temp_result, 2)
+            equation = "cosh(" + label_text.get() + ")"
+            update_data(temp_result, equation)
+        elif operator == "tan":
+            try:
+                temp_result = tan(temp_result, 2)
+                equation = "tan(" + label_text.get() + ")"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "ln":
+            try:
+                temp_result = ln(temp_result, 2)
+                equation = "tan(" + label_text.get() + ")"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "log":
+            try:
+                temp_result = log(temp_result, 2)
+                equation = "log(" + label_text.get() + ")"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "exp":
+            try:
+                temp_result = exp(temp_result, 2)
+                equation = "exp(" + label_text.get() + ")"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "n!":
+            try:
+                temp_result = factorial(temp_result, 2)
+                equation = "(" + label_text.get() + ")!"
+                update_data(temp_result, equation)
+            except ValueError as e:
+                messagebox.showerror('Calculator Error', 'Error: ' + str(e))
+        elif operator == "x^2":
+            temp_result = square(temp_result, 2)
+            equation = "(" + label_text.get() + ")^2"
+            update_data(temp_result, equation)
+        elif operator == "x^3":
+            temp_result = cube(temp_result, 2)
+            equation = "(" + label_text.get() + ")^3"
+            update_data(temp_result, equation)
+
+def memory_operator(operator):
+    global memory, temp_result
+    if operator == "MC":
+        memory = None
+        disable_button("MC")
+        disable_button("MR")
+        disable_button("M+")
+        disable_button("M-")
+    elif operator == "MR":
+        entry_text.set(str(memory))
+    elif operator == "MS":
+        memory = temp_result
+        enable_button("MC")
+        enable_button("MR")
+        enable_button("M+")
+        enable_button("M-")
 
 
+def clear_entry(type):
+    global temp_result, equation, counter, history, new_equation
+    if type == "partially":
+        try:
+            counter, history, equation, temp_result = clear_last_entry(counter, history)
+            label_text.set(equation)
+            entry_text.set(str(temp_result))
+        except ValueError as e:
+            messagebox.showinfo("Info", str(e))
+    elif type == "fully":
+        counter, history = clear_history(counter, history)
+        temp_result = 0
+        equation = ""
+        new_equation = True
+        label_text.set("")
+        entry_text.set("")
+
+def change_angle_mode(type):
+    global angle_mode
+    angle_mode = type
 
 # Left-side buttons
 buttons_left = [
-    ("", 3, 0, 1, 1, None),
-    ("Inv", 3, 1, 1, 1, None),
-    ("ln", 3, 2, 1, 1, None),
-    ("", 3, 3, 1, 1, None),
-    ("", 3, 4, 1, 1, None),
-    ("Int", 4, 0, 1, 1, None),
-    ("sinh", 4, 1, 1, 1, None),
-    ("sin", 4, 2, 1, 1, None),
-    ("x^2", 4, 3, 1, 1, None),
-    ("n!", 4, 4, 1, 1, None),
-    ("", 5, 0, 1, 1, None),
-    ("cosh", 5, 1, 1, 1, None),
-    ("cos", 5, 2, 1, 1, None),
-    ("x^y", 5, 3, 1, 1, None),
-    ("y√", 5, 4, 1, 1, None),
-    ("Pi", 6, 0, 1, 1, None),
-    ("tanh", 6, 1, 1, 1, None),
-    ("tan", 6, 2, 1, 1, None),
-    ("x^3", 6, 3, 1, 1, None),
-    ("³√", 6, 4, 1, 1, None),
-    ("", 7, 0, 1, 1, None),
-    ("Exp", 7, 1, 1, 1, None),
-    ("Mod", 7, 2, 1, 1, None),
-    ("log", 7, 3, 1, 1, None),
-    ("10^x", 7, 4, 1, 1, None),
+    ("", DISABLED, 3, 0, 1, 1, None),
+    ("Inv", NORMAL, 3, 1, 1, 1, None),
+    ("ln", NORMAL, 3, 2, 1, 1, lambda: add_operator("ln")),
+    ("", DISABLED, 3, 3, 1, 1, None),
+    ("", DISABLED, 3, 4, 1, 1, None),
+    ("Int", NORMAL, 4, 0, 1, 1, None),
+    ("sinh", NORMAL, 4, 1, 1, 1, lambda: add_operator("sinh")),
+    ("sin", NORMAL, 4, 2, 1, 1, lambda: add_operator("sin")),
+    ("x^2", NORMAL, 4, 3, 1, 1, lambda: add_operator("x^2")),
+    ("n!", NORMAL, 4, 4, 1, 1, lambda: add_operator("n!")),
+    ("", DISABLED, 5, 0, 1, 1, None),
+    ("cosh", NORMAL, 5, 1, 1, 1, lambda: add_operator("cosh")),
+    ("cos", NORMAL, 5, 2, 1, 1, lambda: add_operator("cos")),
+    ("x^y", NORMAL, 5, 3, 1, 1, None),
+    ("y√", NORMAL, 5, 4, 1, 1, None),
+    ("Pi", NORMAL, 6, 0, 1, 1, None),
+    ("tanh", NORMAL, 6, 1, 1, 1, lambda: add_operator("tanh")),
+    ("tan", NORMAL, 6, 2, 1, 1, lambda: add_operator("tan")),
+    ("x^3", NORMAL, 6, 3, 1, 1, lambda: add_operator("x^3")),
+    ("³√", NORMAL, 6, 4, 1, 1, None),
+    ("", DISABLED, 7, 0, 1, 1, None),
+    ("Exp", NORMAL, 7, 1, 1, 1, lambda: add_operator("exp")),
+    ("Mod", NORMAL, 7, 2, 1, 1, None),
+    ("log", NORMAL, 7, 3, 1, 1, lambda: add_operator("log")),
+    ("10^x", NORMAL, 7, 4, 1, 1, None),
 ]
 
 # Right-side buttons
 buttons_right = [
-    ("MC", 2, 5, 1, 1, None),
-    ("MR", 2, 6, 1, 1, None),
-    ("MS", 2, 7, 1, 1, None),
-    ("M+", 2, 8, 1, 1, None),
-    ("M-", 2, 9, 1, 1, None),
-    ("", 3, 5, 1, 1, None),
-    ("CE", 3, 6, 1, 1, None),
-    ("C", 3, 7, 1, 1, None),
-    ("±", 3, 8, 1, 1, None),
-    ("√", 3, 9, 1, 1, None),
-    ("7", 4, 5, 1, 1, lambda: add_number(7)),
-    ("8", 4, 6, 1, 1, lambda: add_number(8)),
-    ("9", 4, 7, 1, 1, lambda: add_number(9)),
-    ("/", 4, 8, 1, 1, lambda: add_operator("/")),
-    ("%", 4, 9, 1, 1, lambda: add_operator("%")),
-    ("4", 5, 5, 1, 1, lambda: add_number(4)),
-    ("5", 5, 6, 1, 1, lambda: add_number(5)),
-    ("6", 5, 7, 1, 1, lambda: add_number(6)),
-    ("*", 5, 8, 1, 1, lambda: add_operator("*")),
-    ("1/x", 5, 9, 1, 1, None),
-    ("1", 6, 5, 1, 1, lambda: add_number(1)),
-    ("2", 6, 6, 1, 1, lambda: add_number(2)),
-    ("3", 6, 7, 1, 1, lambda: add_number(3)),
-    ("-", 6, 8, 1, 1, lambda: add_operator("-")),
-    ("=", 6, 9, 2, 1, None),
-    ("0", 7, 5, 1, 2, lambda: add_number(0)),
-    (".", 7, 7, 1, 1, None),
-    ("+", 7, 8, 1, 1, lambda: add_operator("+")),
+    ("MC", DISABLED, 2, 5, 1, 1, lambda: memory_operator("MC")),
+    ("MR", DISABLED, 2, 6, 1, 1, lambda: memory_operator("MR")),
+    ("MS", NORMAL, 2, 7, 1, 1, lambda: memory_operator("MS")),
+    ("M+", DISABLED, 2, 8, 1, 1, lambda: memory_operator("M+")),
+    ("M-", DISABLED, 2, 9, 1, 1, lambda: memory_operator("M-")),
+    ("", DISABLED, 3, 5, 1, 1, None),
+    ("CE", NORMAL, 3, 6, 1, 1, lambda: clear_entry("partially")),
+    ("C", NORMAL, 3, 7, 1, 1, lambda: clear_entry("fully")),
+    ("±", NORMAL, 3, 8, 1, 1, None),
+    ("√", NORMAL, 3, 9, 1, 1, lambda: add_operator("√")),
+    ("7", NORMAL, 4, 5, 1, 1, lambda: add_digit(7)),
+    ("8", NORMAL, 4, 6, 1, 1, lambda: add_digit(8)),
+    ("9", NORMAL, 4, 7, 1, 1, lambda: add_digit(9)),
+    ("/", NORMAL, 4, 8, 1, 1, lambda: add_operator("/")),
+    ("%", NORMAL, 4, 9, 1, 1, lambda: add_operator("%")),
+    ("4", NORMAL, 5, 5, 1, 1, lambda: add_digit(4)),
+    ("5", NORMAL, 5, 6, 1, 1, lambda: add_digit(5)),
+    ("6", NORMAL, 5, 7, 1, 1, lambda: add_digit(6)),
+    ("*", NORMAL, 5, 8, 1, 1, lambda: add_operator("*")),
+    ("1/x", NORMAL, 5, 9, 1, 1, None),
+    ("1", NORMAL, 6, 5, 1, 1, lambda: add_digit(1)),
+    ("2", NORMAL, 6, 6, 1, 1, lambda: add_digit(2)),
+    ("3", NORMAL, 6, 7, 1, 1, lambda: add_digit(3)),
+    ("-", NORMAL, 6, 8, 1, 1, lambda: add_operator("-")),
+    ("=", NORMAL, 6, 9, 2, 1, None),
+    ("0", NORMAL, 7, 5, 1, 2, lambda: add_digit(0)),
+    (".", NORMAL, 7, 7, 1, 1, None),
+    ("+", NORMAL, 7, 8, 1, 1, lambda: add_operator("+")),
 ]
 
 # Display buttons
-for (text, row, col, rowspan, columnspan, command) in buttons_left + buttons_right:
-    if text is None:
-        button = Button(window, state="disabled")
-    else:
-        button = Button(window, text=text, font=("Arial", 12), command=command)
-    button.grid(row=row, column=col, rowspan=rowspan, columnspan=columnspan, sticky="nsew")
+for (text, disabled, row, col, rowspan, columnspan, command) in buttons_left + buttons_right:
+    btn = Button(window, text=text)
+    btn.grid(row=row, column=col, rowspan=rowspan, columnspan=columnspan, sticky='nsew')
+    if command:
+        buttons[text] = btn
+        btn.config(command=command, state=disabled)
 
 # Start the main event loop
 window.mainloop()

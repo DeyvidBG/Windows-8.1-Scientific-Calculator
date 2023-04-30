@@ -23,7 +23,7 @@ To run this program, you need to have Python and Tkinter installed on your syste
 3. equation - stores the current equation / string
 4. counter - stores the step of the operation / integer
 5. history - stores all operations / dictionary key("equation") - value("result")
-6. digit - stores a flag that shows if the user continues to enter only digits that build a number / boolean
+6. number - stores a flag that shows if the user continues to enter only digits that build a number / boolean
 
 ## Signs
 
