@@ -66,6 +66,7 @@ temp_result = 0
 equation = ""
 counter = 0
 history = {}
+new_equation = True
 digit = True
 
 # work with memory
